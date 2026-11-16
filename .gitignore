@@ -16,7 +16,223 @@ captures/
 *.aab
 *.apk
 output-metadata.json
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airplane Multiplier Game</title>
+<style>
+  body {
+    margin: 0;
+    padding: 20px;
+    background-color: #0f172a;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .game-box {
+    width: 100%;
+    max-width: 500px;
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    text-align: center;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    margin-bottom: 15px;
+    background: #0f172a;
+    padding: 10px 15px;
+    border-radius: 8px;
+  }
+  canvas {
+    width: 100%;
+    height: 250px;
+    background: radial-gradient(circle at bottom left, #1e3a8a, #090d16);
+    border-radius: 8px;
+    border: 1px solid #334155;
+  }
+  .controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  input {
+    width: 100px;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    text-align: center;
+    font-weight: bold;
+  }
+  button {
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: white;
+    transition: 0.2s;
+  }
+  #startBtn { background-color: #16a34a; }
+  #startBtn:hover { background-color: #15803d; }
+  #cashoutBtn { background-color: #ea580c; display: none; }
+  #cashoutBtn:hover { background-color: #c2410c; }
+  #status {
+    margin-top: 12px;
+    font-size: 15px;
+    min-height: 20px;
+    color: #cbd5e1;
+  }
+</style>
+</head>
+<body>
 
+<div class="game-box">
+  <div class="top-bar">
+    <span>वर्चुअल कॉइन्स: <strong id="balance">1000</strong></span>
+    <span>मल्टीप्लायर: <strong id="multDisplay">1.00x</strong></span>
+  </div>
+
+  <canvas id="gameCanvas" width="460" height="250"></canvas>
+
+  <div class="controls">
+    <input type="number" id="betAmount" value="50" min="10" max="500">
+    <button id="startBtn" onclick="startGame()">उड़ान भरें (Start)</button>
+    <button id="cashoutBtn" onclick="cashOut()">कैशआउट (Cash Out)</button>
+  </div>
+
+  <div id="status">पॉइंट्स चुनें और उड़ान शुरू करें!</div>
+</div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  
+  let balance = 1000;
+  let bet = 50;
+  let multiplier = 1.00;
+  let crashPoint = 1.00;
+  let isFlying = false;
+  let animationId;
+  let planeX = 30;
+  let planeY = 210;
+
+  const balanceEl = document.getElementById('balance');
+  const multEl = document.getElementById('multDisplay');
+  const statusEl = document.getElementById('status');
+  const startBtn = document.getElementById('startBtn');
+  const cashoutBtn = document.getElementById('cashoutBtn');
+  const betInput = document.getElementById('betAmount');
+
+  function drawScene(crashed = false) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // उड़ान की रेखा (Flight Path)
+    ctx.beginPath();
+    ctx.moveTo(30, 210);
+    ctx.quadraticCurveTo(planeX / 2, 210, planeX, planeY);
+    ctx.strokeStyle = crashed ? '#ef4444' : '#38bdf8';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // प्लेन आइकन
+    ctx.font = '28px Arial';
+    ctx.fillText(crashed ? '💥' : '✈️', planeX - 14, planeY + 8);
+
+    // स्क्रीन के बीच में बड़ा मल्टीप्लायर टेक्स्ट
+    ctx.fillStyle = crashed ? '#ef4444' : '#ffffff';
+    ctx.font = 'bold 38px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(multiplier.toFixed(2) + 'x', canvas.width / 2, canvas.height / 2);
+
+    if (crashed) {
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('प्लेन उड़ गया (Flew Away)!', canvas.width / 2, (canvas.height / 2) + 30);
+    }
+  }
+
+  function startGame() {
+    bet = parseInt(betInput.value);
+    if (isNaN(bet) || bet <= 0 || bet > balance) {
+      statusEl.innerText = 'सही कॉइन्स दर्ज करें!';
+      return;
+    }
+
+    balance -= bet;
+    balanceEl.innerText = balance;
+    
+    multiplier = 1.00;
+    planeX = 30;
+    planeY = 210;
+    isFlying = true;
+
+    // रैंडम क्रैश पॉइंट (1.10x से 6.00x के बीच)
+    crashPoint = (Math.random() * 4.9 + 1.1).toFixed(2);
+    if (Math.random() < 0.2) crashPoint = (Math.random() * 0.5 + 1.01).toFixed(2);
+
+    startBtn.style.display = 'none';
+    cashoutBtn.style.display = 'inline-block';
+    betInput.disabled = true;
+    statusEl.innerText = 'प्लेन उड़ रहा है... सही समय पर कैशआउट दबाएं!';
+
+    updateGame();
+  }
+
+  function updateGame() {
+    if (!isFlying) return;
+
+    multiplier += 0.015;
+    multEl.innerText = multiplier.toFixed(2) + 'x';
+    cashoutBtn.innerText = 'कैशआउट (' + Math.floor(bet * multiplier) + ')';
+
+    // प्लेन की पोजीशन आगे बढ़ाएं
+    if (planeX < canvas.width - 60) planeX += 1.8;
+    if (planeY > 50) planeY -= 0.7;
+
+    if (multiplier >= crashPoint) {
+      endGame(true);
+    } else {
+      drawScene(false);
+      animationId = requestAnimationFrame(updateGame);
+    }
+  }
+
+  function cashOut() {
+    if (!isFlying) return;
+    const winAmount = Math.floor(bet * multiplier);
+    balance += winAmount;
+    balanceEl.innerText = balance;
+    statusEl.innerText = `बधाई हो! आपने ${winAmount} कॉइन्स जीते (${multiplier.toFixed(2)}x पर)!`;
+    endGame(false);
+  }
+
+  function endGame(crashed) {
+    isFlying = false;
+    cancelAnimationFrame(animationId);
+    if (crashed) {
+      statusEl.innerText = `प्लेन ${multiplier.toFixed(2)}x पर क्रैश हो गया!`;
+      drawScene(true);
+    }
+    startBtn.style.display = 'inline-block';
+    cashoutBtn.style.display = 'none';
+    betInput.disabled = false;
+  }
+
+  drawScene();
+</script>
+
+</body>
+</html>
 # IntelliJ
 *.iml
 .idea/
